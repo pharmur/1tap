@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>1tap.voice | Instant Premium Mesh</title>
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script type="module" crossorigin src="./assets/index-JwizSnBQ.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-DZL7uovs.css">
+</head>
+<body>
+    <div id="app" class="app-wrapper">
+        <div class="guild-rail"><a href="/" class="brand-logo-img"><img src="./logo.png" alt="1TAP Logo" style="width: 40px; height: 40px; border-radius: 10px;"></a></div>
+        <div class="channel-panel">
+            <div>
+                <div class="panel-header"><img src="./wordmark.png" alt="1tap.voice" style="height: 24px; object-fit: contain;"></div>
+                <div class="channel-list">
+                    <div class="channel-category-header"><div class="channel-category">Voice Channels</div><button class="btn-add-channel" id="addChannelBtn">+</button></div>
+                    <div id="dynamicVoiceChannelsContainer"></div>
+                </div>
+            </div>
+            <div class="user-connection-status">
+                <div id="networkStateLabel" style="font-size: 10px; color: var(--csf-text-muted); font-weight:800; margin-bottom: 8px;">Initializing Mesh...</div>
+                <div class="session-user-card">
+                    <div class="user-meta"><div class="user-avatar-sm" id="userAvatar"></div><div class="user-profile-name" id="userName">User</div></div>
+                    <button class="btn-mute" id="muteBtn">Mute</button>
+                </div>
+            </div>
+        </div>
+        <div class="central-grid-stage">
+            <div class="top-navbar-bar">
+                <div class="navbar-title" id="navChannelTitle">Lobby</div>
+                <div class="invite-inline-row" id="inviteContainer" style="display: none;">
+                    <input type="text" id="inviteUrl" readonly>
+                    <button class="btn-copy-icon" id="copyBtn">📋</button>
+                </div>
+            </div>
+            <div id="mainStage" class="chat-history-container"></div>
+            <div class="chat-input-area"><div class="chat-input-wrapper"><input type="text" id="chatInputField" placeholder="Message #Lobby..."></div></div>
+        </div>
+    </div>
+    <div class="modal-overlay" id="profileModal">
+        <div class="modal-card">
+            <h3 id="modalTitle">Setup Profile</h3>
+            <input type="text" id="usernameInput" placeholder="Enter custom handle..." autocomplete="off">
+            <div class="upload-zone-wrapper">
+                <img class="avatar-preview-display" id="avatarPreview" src="">
+                <input type="file" id="avatarUpload" accept="image/*" style="display: none;">
+                <button class="btn-upload-trigger" id="uploadTrigger">Upload Avatar</button>
+            </div>
+            <button class="btn-save" id="saveProfileBtn">Connect</button>
+        </div>
+    </div>
+</body>
+</html>
