@@ -68,13 +68,28 @@ export function initializeUI() {
 export function saveProfile() {
     const username = document.getElementById('usernameInput').value;
     const avatar = document.getElementById('avatarPreview').src;
-    if (!username) return alert("Enter a username!");
+    
+    // 1. Validation check
+    if (!username) {
+        alert("Enter a username!");
+        return;
+    }
 
+    // 2. Save data
     localStorage.setItem('1tap_user_profile', JSON.stringify({ username, avatar }));
     document.getElementById('userName').innerText = username;
-    document.getElementById('profileModal').classList.remove('active');
     
-    if (!state.currentRoomId) createNewPrivateRoomHost();
+    // 3. Close the modal properly before navigating
+    const modal = document.getElementById('profileModal');
+    if (modal) modal.classList.remove('active');
+    
+    // 4. Force a tiny delay so the browser can paint the UI changes
+    // This prevents the "flash" by ensuring the modal disappears before the refresh
+    if (!state.currentRoomId) {
+        setTimeout(() => {
+            createNewPrivateRoomHost();
+        }, 100); 
+    }
 }
 
 export function buildChannelDOMRows() {
