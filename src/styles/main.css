@@ -589,3 +589,9 @@ button.btn-mute.active-muted {
     border-color: var(--csf-accent);
     box-shadow: 0 0 15px var(--csf-accent-glow);
 }
+
+.speaking .occupant-avatar {
+    border: 2px solid #00ff00 !important;
+    box-shadow: 0 0 10px #00ff00;
+    border-radius: 50%; /* Ensures the ring is circular */
+}

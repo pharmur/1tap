@@ -8,10 +8,14 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "deploy": "gh-pages -d dist"
+    "deploy": "gh-pages -d dist -r https://github.com/pharmur/1tap.git"
   },
   "devDependencies": {
     "gh-pages": "^6.3.0",
     "vite": "^8.1.0"
+  },
+  "dependencies": {
+    "firebase": "^12.15.0",
+    "peerjs": "^1.5.5"
   }
 }

@@ -1,3 +1,7 @@
+import { db } from './firebase'; // Ensure this is imported at the top
+import { ref, update } from 'firebase/database'; // Import these from firebase/database
+import { myFirebaseKey } from './audio.js'; // You need this exported from audio.js
+
 // --- CENTRAL STATE ---
 export let state = {
     currentRoomId: new URLSearchParams(window.location.search).get('room'),
@@ -8,6 +12,9 @@ export let state = {
     pendingRoomCreation: false,
     localVisualizerLoopId: null
 };
+
+// PERSISTENCE: Track peers globally so channel switching can re-render them
+let currentRemotePeers = [];
 
 export function setLocalStream(stream) { state.localStream = stream; }
 
@@ -34,11 +41,9 @@ export function initializeUI() {
     const modal = document.getElementById('profileModal');
     const saveBtn = document.getElementById('saveProfileBtn');
     
-    // Always force the modal to show on load
     if (modal) modal.classList.add('active');
     if (saveBtn) saveBtn.innerText = "Connect";
 
-    // Load existing profile to pre-fill inputs
     const savedProfile = localStorage.getItem('1tap_user_profile');
     if (savedProfile) {
         const profile = JSON.parse(savedProfile);
@@ -67,14 +72,9 @@ export function saveProfile() {
 
     localStorage.setItem('1tap_user_profile', JSON.stringify({ username, avatar }));
     document.getElementById('userName').innerText = username;
-    
-    // Close the modal
     document.getElementById('profileModal').classList.remove('active');
     
-    // Trigger room creation if needed
-    if (!state.currentRoomId) {
-        createNewPrivateRoomHost();
-    }
+    if (!state.currentRoomId) createNewPrivateRoomHost();
 }
 
 export function buildChannelDOMRows() {
@@ -94,22 +94,42 @@ export function buildChannelDOMRows() {
         div.onclick = () => switchChannel(ch);
         container.appendChild(div);
     });
-    renderOccupants();
+    renderOccupants([]);
 }
 
-export function renderOccupants() {
-    const profile = JSON.parse(localStorage.getItem('1tap_user_profile'));
-    if (!profile) return;
-    document.querySelectorAll('.room-occupants').forEach(list => list.innerHTML = '');
-    const activeList = document.getElementById(`occupants-${state.activeChannel.replace(/\s+/g, '-')}`);
-    if (activeList) {
-        activeList.innerHTML = `
-            <li class="occupant-item" id="localOccupantItem">
-                <img src="${profile.avatar}" class="occupant-avatar" id="userAvatar">
-                <span>${profile.username}</span>
-            </li>
-        `;
-    }
+export function renderOccupants(remotePeerObjects = currentRemotePeers) {
+    currentRemotePeers = remotePeerObjects;
+
+    // 1. Clear ALL lists globally first to ensure we don't leave 'ghost' users
+    document.querySelectorAll('.room-occupants').forEach(list => {
+        list.innerHTML = '';
+        // Re-add the "You" placeholder if this is the list for the user's active channel
+        if (list.id === `occupants-${state.activeChannel.replace(/\s+/g, '-')}`) {
+            list.innerHTML = `
+                <li class="occupant-item" id="localOccupantItem">
+                    <span>${JSON.parse(localStorage.getItem('1tap_user_profile'))?.username || 'You'} (You)</span>
+                </li>
+            `;
+        }
+    });
+
+    // 2. Render all peers into their respective channel lists
+    remotePeerObjects.forEach(peer => {
+        // Find the list corresponding to the peer's current channel
+        const targetList = document.getElementById(`occupants-${peer.channel.replace(/\s+/g, '-')}`);
+        
+        // If the channel list doesn't exist (e.g., peer is in a custom channel not in DOM), skip
+        if (!targetList) return;
+
+        // Prevent rendering yourself in remote lists
+        if (peer.id === state.peer?.id) return;
+
+        const li = document.createElement('li');
+        li.className = 'occupant-item';
+        li.id = `user-${peer.id}`;
+        li.innerHTML = `<span>${peer.username || "Peer"}</span>`;
+        targetList.appendChild(li);
+    });
 }
 
 export function startAudioVisualizer(stream) {
@@ -124,7 +144,7 @@ export function startAudioVisualizer(stream) {
         const avg = dataArray.reduce((a, b) => a + b) / dataArray.length;
         const localItem = document.getElementById('localOccupantItem');
         if (localItem) {
-            avg > 20 ? localItem.classList.add('speaking') : localItem.classList.remove('speaking');
+            avg > 5 ? localItem.classList.add('speaking') : localItem.classList.remove('speaking');
         }
         state.localVisualizerLoopId = requestAnimationFrame(update);
     }
@@ -133,10 +153,20 @@ export function startAudioVisualizer(stream) {
 
 export function switchChannel(channelName) {
     state.activeChannel = channelName;
+    
+    // 1. Update UI
     document.getElementById('navChannelTitle').innerText = channelName;
     document.querySelectorAll('.voice-room-row').forEach(r => r.classList.remove('active-channel'));
     document.getElementById(`room-${channelName.replace(/\s+/g, '-')}`).classList.add('active-channel');
-    renderOccupants();
+    
+    // 2. Update Firebase so other tabs know you moved
+    if (myFirebaseKey) {
+        const userRef = ref(db, `rooms/${state.currentRoomId}/peers/${myFirebaseKey}`);
+        update(userRef, { channel: channelName });
+    }
+    
+    // 3. Re-render the occupants for the new channel
+    renderOccupants(currentRemotePeers);
 }
 
 export function createNewPrivateRoomHost() {
@@ -171,4 +201,24 @@ export function handleAddChannelClick() {
         localStorage.setItem(storageKey, JSON.stringify(channels));
         buildChannelDOMRows();
     }
+}
+
+export function renderRemoteOccupant(peerId, remoteStream) {
+    const li = document.getElementById(`user-${peerId}`);
+    if (!li) return;
+
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const source = audioContext.createMediaStreamSource(remoteStream);
+    const analyzer = audioContext.createAnalyser();
+    analyzer.fftSize = 256;
+    source.connect(analyzer);
+    
+    const data = new Uint8Array(analyzer.frequencyBinCount);
+    function update() {
+        analyzer.getByteFrequencyData(data);
+        const avg = data.reduce((a, b) => a + b) / data.length;
+        avg > 5 ? li.classList.add('speaking') : li.classList.remove('speaking');
+        requestAnimationFrame(update);
+    }
+    update();
 }
