@@ -6,6 +6,12 @@ export let myFirebaseKey = null;
 export let activeUsers = [];
 
 export async function bootConnectionPipeline(onUserListUpdate, onRemoteStream) {
+    console.log("Pipeline starting...");
+    const roomId = new URLSearchParams(window.location.search).get('room');
+    if (!roomId) {
+        console.warn("No Room ID found in URL! Pipeline aborted.");
+        return;
+    }
     try {
         const stream = await navigator.mediaDevices.getUserMedia({
             audio: {
