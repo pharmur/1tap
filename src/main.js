@@ -1,5 +1,8 @@
+console.log("--- BUNDLE EXECUTING: main.js loaded ---");
+alert("main.js is running"); // This will force an alert if the code runs
+
 import './styles/main.css';
-import { bootConnectionPipeline } from './lib/audio.js';
+import { bootConnectionPipeline } from 'src/lib/audio.js';
 import * as AppLogic from './lib/app_logic.js';
 
 window.handleAddChannelClick = AppLogic.handleAddChannelClick;

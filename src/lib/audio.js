@@ -2,6 +2,7 @@
 import { Peer } from 'peerjs';
 import { db } from './firebase';
 import { ref, push, onValue, set, onDisconnect } from 'firebase/database';
+
 export let myFirebaseKey = null;
 export let activeUsers = [];
 
@@ -88,6 +89,5 @@ export async function bootConnectionPipeline(onUserListUpdate, onRemoteStream) {
         return stream;
     } catch (err) {
         console.error("Audio Pipeline Error:", err);
-        return null;
     }
 }
