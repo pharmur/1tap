@@ -6,9 +6,11 @@ export let myFirebaseKey = null;
 export let activeUsers = [];
 
 export async function bootConnectionPipeline(onUserListUpdate, onRemoteStream) {
-    console.log("Pipeline starting...");
+    // FIX: Define roomId at the absolute top of the function scope
     const params = new URLSearchParams(window.location.search);
     const roomId = params.get('room') || 'lobby';
+    
+    console.log("Checking Room ID:", roomId);
     
     try {
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -41,6 +43,7 @@ export async function bootConnectionPipeline(onUserListUpdate, onRemoteStream) {
         const roomRef = ref(db, `rooms/${roomId}/peers`);
         onValue(roomRef, (snapshot) => {
             const peers = snapshot.val();
+            console.log("Current peers in this room:", peers);
             if (!peers) return;
 
             const allPeerObjects = Object.values(peers);
