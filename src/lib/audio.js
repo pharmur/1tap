@@ -1,4 +1,3 @@
-// src/lib/audio.js
 import { Peer } from 'peerjs';
 import { db } from './firebase';
 import { ref, push, onValue, set, onDisconnect } from 'firebase/database';
@@ -8,13 +7,10 @@ export let activeUsers = [];
 
 export async function bootConnectionPipeline(onUserListUpdate, onRemoteStream) {
     console.log("Pipeline starting...");
-    
-    // 1. Get the roomId safely once
     const params = new URLSearchParams(window.location.search);
     const roomId = params.get('room') || 'lobby';
     
     try {
-        // 2. Initialize Media Stream
         const stream = await navigator.mediaDevices.getUserMedia({
             audio: {
                 echoCancellation: { exact: true },
@@ -25,7 +21,6 @@ export async function bootConnectionPipeline(onUserListUpdate, onRemoteStream) {
             }
         });
 
-        // 3. Setup PeerJS
         const peer = new Peer(); 
         const activeCalls = new Set();
 
@@ -43,7 +38,6 @@ export async function bootConnectionPipeline(onUserListUpdate, onRemoteStream) {
             onDisconnect(myPeerRef).remove();
         });
 
-        // 4. Firebase Listener
         const roomRef = ref(db, `rooms/${roomId}/peers`);
         onValue(roomRef, (snapshot) => {
             const peers = snapshot.val();
