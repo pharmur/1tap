@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>1tap.voice | Instant Premium Mesh</title>
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <script>
+    window.onerror = function(message, source, lineno, colno, error) {
+        alert("CRASH: " + message + " at " + source + ":" + lineno);
+        console.error("CRASH DETAILS:", error);
+    };
+</script>
 </head>
 <body>
     <div id="app" class="app-wrapper">

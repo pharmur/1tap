@@ -18,5 +18,8 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const analytics = getAnalytics(app);
 
-// Initialize Database and export it so audio.js can use it
+console.log("Initializing Firebase with:", firebaseConfig.databaseURL);
 export const db = getDatabase(app);
+console.log("Database initialized:", db);
+
+export const isFirebaseInitialized = true;
