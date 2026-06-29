@@ -1,5 +1,5 @@
 import { Peer } from 'peerjs';
-import { db } from './firebase';
+import { db } from './firebase.js';
 import { ref, push, onValue, set, onDisconnect } from 'firebase/database';
 
 export let myFirebaseKey = null;

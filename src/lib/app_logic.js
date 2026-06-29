@@ -1,4 +1,4 @@
-import { db } from './firebase';
+import { db } from './firebase.js';
 import { ref, update } from 'firebase/database';
 import { myFirebaseKey } from './audio.js';
 
