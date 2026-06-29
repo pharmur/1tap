@@ -2,6 +2,14 @@ import { db } from './firebase.js';
 import { ref, update } from 'firebase/database';
 import { myFirebaseKey } from './audio.js';
 
+// 1. Module-level variable for the callback
+let onProfileSavedCallback = null;
+
+// 2. Exported function to set the callback from main.js
+export function setOnProfileSaved(callback) {
+    onProfileSavedCallback = callback;
+}
+
 export let state = {
     currentRoomId: new URLSearchParams(window.location.search).get('room'),
     localStream: null,
@@ -37,18 +45,24 @@ export function initializeUI() {
     const networkLabel = document.getElementById('networkStateLabel');
     const modal = document.getElementById('profileModal');
     const saveBtn = document.getElementById('saveProfileBtn');
-
-    
     
     if (modal) modal.classList.add('active');
     if (saveBtn) saveBtn.innerText = "Connect";
 
     const savedProfile = localStorage.getItem('1tap_user_profile');
     if (savedProfile) {
-        const profile = JSON.parse(savedProfile);
-        document.getElementById('usernameInput').value = profile.username;
-        if(document.getElementById('avatarPreview')) document.getElementById('avatarPreview').src = profile.avatar || '';
-        if(document.getElementById('userName')) document.getElementById('userName').innerText = profile.username;
+        try {
+            const profile = JSON.parse(savedProfile);
+            const usernameInput = document.getElementById('usernameInput');
+            const avatarPreview = document.getElementById('avatarPreview');
+            const userName = document.getElementById('userName');
+            
+            if (usernameInput) usernameInput.value = profile.username;
+            if (avatarPreview) avatarPreview.src = profile.avatar || '';
+            if (userName) userName.innerText = profile.username;
+        } catch (e) {
+            console.error("Error parsing profile:", e);
+        }
     }
 
     if (!state.currentRoomId) {
@@ -59,43 +73,41 @@ export function initializeUI() {
         const inviteContainer = document.getElementById('inviteContainer');
         if (inviteContainer) {
             inviteContainer.style.display = 'flex';
-            document.getElementById('inviteUrl').value = window.location.href;
+            const inviteUrl = document.getElementById('inviteUrl');
+            if (inviteUrl) inviteUrl.value = window.location.href;
         }
     }
 }
 
 export function saveProfile() {
-    const username = document.getElementById('usernameInput').value;
-    // CRITICAL: Capture the image source from the preview element
+    const usernameInput = document.getElementById('usernameInput');
     const avatarPreview = document.getElementById('avatarPreview');
-    const avatar = avatarPreview ? avatarPreview.src : ''; 
-    
-    if (!username) { 
-        alert("Enter a username!"); 
-        return; 
+    const username = usernameInput.value.trim() || 'Guest';
+    const avatarData = avatarPreview.src;
+
+    if (!avatarData || avatarData === "") {
+        alert("Please upload an avatar first!");
+        return;
     }
 
-    // 1. Lock the button
-    const saveBtn = document.getElementById('saveProfileBtn');
-    if (saveBtn) {
-        saveBtn.disabled = true;
-        saveBtn.innerText = "Connecting...";
-    }
-
-    // 2. Save username AND avatar to localStorage
-    localStorage.setItem('1tap_user_profile', JSON.stringify({ username, avatar }));
+    // 1. Save profile
+    localStorage.setItem('1tap_user_profile', JSON.stringify({ username, avatar: avatarData }));
     
-    // Update the UI username immediately
-    const userNameDisplay = document.getElementById('userName');
-    if (userNameDisplay) userNameDisplay.innerText = username;
-
-    // 3. Hide modal
+    // 2. Hide modal
     const modal = document.getElementById('profileModal');
-    if (modal) modal.style.display = 'none'; 
-    
-    // 4. Navigate
-    if (!state.currentRoomId) {
-        createNewPrivateRoomHost();
+    if (modal) modal.style.display = 'none';
+
+    // 3. Logic Flow:
+    // If we are already in a room (currentRoomId exists), boot the pipeline.
+    // If we are NOT in a room, create one (which reloads the page with a room ID).
+    if (state.currentRoomId) {
+        console.log("Room ID detected, booting pipeline...");
+        if (typeof onProfileSavedCallback === 'function') {
+            onProfileSavedCallback(); 
+        }
+    } else {
+        console.log("No room ID found, triggering new room creation...");
+        createNewPrivateRoomHost(); 
     }
 }
 
@@ -118,10 +130,11 @@ export function buildChannelDOMRows() {
 
 export function renderOccupants(remotePeerObjects = currentRemotePeers) {
     currentRemotePeers = remotePeerObjects;
+    const activeChannelSafe = state.activeChannel || 'Lobby';
+    
     document.querySelectorAll('.room-occupants').forEach(list => {
         list.innerHTML = '';
-        if (list.id === `occupants-${state.activeChannel.replace(/\s+/g, '-')}`) {
-            // Local user row
+        if (list.id === `occupants-${activeChannelSafe.replace(/\s+/g, '-')}`) {
             const profile = JSON.parse(localStorage.getItem('1tap_user_profile')) || { username: 'You' };
             list.innerHTML = `
                 <li class="occupant-item" id="localOccupantItem">
@@ -133,13 +146,14 @@ export function renderOccupants(remotePeerObjects = currentRemotePeers) {
     });
 
     remotePeerObjects.forEach(peer => {
-        const targetList = document.getElementById(`occupants-${peer.channel.replace(/\s+/g, '-')}`);
+        // Safe access to channel property
+        const channelName = peer.channel || 'Lobby';
+        const targetList = document.getElementById(`occupants-${channelName.replace(/\s+/g, '-')}`);
         if (!targetList || peer.id === state.peer?.id) return;
         
         const li = document.createElement('li');
         li.className = 'occupant-item';
         li.id = `user-${peer.id}`;
-        // Ensure image and ring structure are present here too
         li.innerHTML = `
             <div class="visualizer-ring"></div>
             <img src="${peer.avatar || ''}" class="occupant-avatar">
@@ -170,9 +184,12 @@ export function startAudioVisualizer(stream) {
 
 export function switchChannel(channelName) {
     state.activeChannel = channelName;
-    document.getElementById('navChannelTitle').innerText = channelName;
+    const navTitle = document.getElementById('navChannelTitle');
+    if (navTitle) navTitle.innerText = channelName;
+    
     document.querySelectorAll('.voice-room-row').forEach(r => r.classList.remove('active-channel'));
-    document.getElementById(`room-${channelName.replace(/\s+/g, '-')}`).classList.add('active-channel');
+    const activeRow = document.getElementById(`room-${channelName.replace(/\s+/g, '-')}`);
+    if (activeRow) activeRow.classList.add('active-channel');
     
     if (myFirebaseKey) {
         const userRef = ref(db, `rooms/${state.currentRoomId}/peers/${myFirebaseKey}`);
@@ -183,7 +200,19 @@ export function switchChannel(channelName) {
 
 export function createNewPrivateRoomHost() {
     const uniqueSeed = 'room-' + Math.random().toString(36).substring(2, 10);
-    window.location.href = window.location.origin + window.location.pathname + `?room=${uniqueSeed}`;
+    
+    // Update URL without reloading the page
+    const newUrl = window.location.origin + window.location.pathname + `?room=${uniqueSeed}`;
+    window.history.pushState({ path: newUrl }, '', newUrl);
+    
+    // Update state and proceed
+    state.currentRoomId = uniqueSeed;
+    
+    // Now trigger the pipeline directly without a full browser reload
+    console.log("Room created via History API, booting pipeline...");
+    if (typeof onProfileSavedCallback === 'function') {
+        onProfileSavedCallback();
+    }
 }
 
 export function sendChatMessage(text) {

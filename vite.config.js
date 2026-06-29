@@ -1,7 +1,4 @@
-import { defineConfig } from 'vite';
-
-export default defineConfig({
-  // This tells Vite that your assets (JS, CSS) should use relative paths
-  // which is required for GitHub Pages
-  base: './'
-});
+export default {
+  base: './', // This tells Vite to use relative paths for everything
+  // ... other configs
+}

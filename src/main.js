@@ -2,26 +2,41 @@ import './styles/main.css';
 import { bootConnectionPipeline } from './lib/audio.js';
 import * as AppLogic from './lib/app_logic.js';
 
+// Expose necessary functions to the window object for HTML event attributes
 window.handleAddChannelClick = AppLogic.handleAddChannelClick;
 window.switchChannel = AppLogic.switchChannel;
 
 async function initApp() {
     console.log("App initializing...");
-    
-    // 1. Setup UI
     AppLogic.initializeUI();
     AppLogic.setupAvatarUpload();
 
-    // 2. Check Room ID
+    AppLogic.setOnProfileSaved(async () => {
+        console.log("Profile saved, booting pipeline...");
+        await runConnectionPipeline();
+    });
+
+    // --- NEW LOGIC: Auto-Join if profile exists ---
+    const savedProfile = localStorage.getItem('1tap_user_profile');
     const roomId = new URLSearchParams(window.location.search).get('room');
-    console.log("Current Room ID found:", roomId);
 
-    if (!roomId) {
-        console.warn("No room ID detected, application waiting for host creation.");
-        return; 
+    // Force the sidebar to populate with default channels 
+    // so the UI isn't just a blank void on load
+    AppLogic.buildChannelDOMRows();
+
+    if (roomId) {
+        console.log("Room ID found in URL, booting pipeline...");
+        await runConnectionPipeline();
+    } else if (savedProfile) {
+        // If we have a profile but no room ID, 
+        // we might be returning to a previously active room.
+        console.log("Profile found, ready to connect. Waiting for room ID or action.");
+    } else {
+        console.warn("No profile and no room. Waiting for user interaction.");
     }
+}
 
-    // 3. Start Connection Pipeline
+async function runConnectionPipeline() {
     try {
         const stream = await bootConnectionPipeline(
             (remotePeerObjects) => {
@@ -30,6 +45,7 @@ async function initApp() {
             },
             (peerId, remoteStream) => {
                 console.log("Starting visualizer for peer:", peerId);
+                // Implementation for visualizer per peer
                 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 const source = audioContext.createMediaStreamSource(remoteStream);
                 const analyzer = audioContext.createAnalyser();
@@ -54,14 +70,15 @@ async function initApp() {
             console.log("Pipeline success, setting local stream.");
             AppLogic.setLocalStream(stream);
             AppLogic.startAudioVisualizer(stream);
-        } else {
-            console.error("Pipeline returned no stream.");
         }
     } catch (error) {
         console.error("Critical error during bootConnectionPipeline:", error);
     }
+}
 
-    // 4. Chat & Event Listeners
+// 4. Global Event Listeners
+document.addEventListener('DOMContentLoaded', () => {
+    // Chat input
     const chatInput = document.getElementById('chatInputField');
     if (chatInput) {
         chatInput.addEventListener('keypress', (e) => {
@@ -74,22 +91,26 @@ async function initApp() {
             }
         });
     }
-}
 
-document.addEventListener('click', (e) => {
-    const id = e.target.id;
-    if (id === 'createRoomBtn') AppLogic.createNewPrivateRoomHost();
-    if (id === 'saveProfileBtn') AppLogic.saveProfile();
-    if (id === 'addChannelBtn') AppLogic.handleAddChannelClick();
-    if (id === 'muteBtn') AppLogic.toggleMute(e.target);
-    if (id === 'copyBtn') {
-        const url = document.getElementById('inviteUrl');
-        if (url) {
-            url.select();
-            document.execCommand('copy');
-            alert("Invite URL copied!");
+    // App click handling
+    document.addEventListener('click', (e) => {
+        const id = e.target.id;
+        if (id === 'createRoomBtn') AppLogic.createNewPrivateRoomHost();
+        if (id === 'saveProfileBtn') {
+            e.preventDefault(); // Prevents page refresh/console wipe
+            AppLogic.saveProfile();
         }
-    }
-});
+        if (id === 'addChannelBtn') AppLogic.handleAddChannelClick();
+        if (id === 'muteBtn') AppLogic.toggleMute(e.target);
+        if (id === 'copyBtn') {
+            const url = document.getElementById('inviteUrl');
+            if (url) {
+                url.select();
+                document.execCommand('copy');
+                alert("Invite URL copied!");
+            }
+        }
+    });
 
-document.addEventListener('DOMContentLoaded', initApp);
+    initApp();
+});
